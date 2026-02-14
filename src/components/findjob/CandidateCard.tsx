@@ -67,7 +67,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate }) => {
       jobId: candidate.id,
       title: candidate.title || 'Seasonal Job',
       type: 'seasonal',
-      rate: undefined,
+      // rate: undefined,
       location: candidate.locationText ? [candidate.locationText] : [],
       schedule: {
         start: candidate.dateRange?.start || '',
