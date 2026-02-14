@@ -1,16 +1,92 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Alert } from 'react-native';
 import { Calendar, Lock, SendHorizontal, MapPin } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { styles } from '../../screen/seasonAvailabilty/style';
-import Worker from '../../@types/Worker.type';
+import { createOrGetChat } from '../../services/chat';
+import { JobAttachment } from '../../@types/Chat.type';
+import { getAuth } from '@react-native-firebase/auth';
 
-interface CandidateCardProps {
-  candidate: Worker;
-}
+type SeasonalCandidate = {
+  id: string;
+  user: {
+    id: string;
+    name: string;
+    photo: string | null;
+    city: string;
+    verified: boolean;
+    openToWork: boolean;
+  };
+  bannerImage: string | null;
+  title: string;
+  dateRange: {
+    start: string | null;
+    end: string | null;
+  };
+  tags: string[];
+  locationText: string;
+  isLocked?: boolean;
+  isAvailable?: boolean;
+  status?: 'Available' | 'Starts Soon';
+};
+
+type CandidateCardProps = {
+  candidate: SeasonalCandidate;
+};
+
 const CandidateCard: React.FC<CandidateCardProps> = ({ candidate }) => {
   const navigation = useNavigation<any>();
-  const formatCustomDate = (dateString?: string) => {
+
+  const handleEngage = async () => {
+    try {
+      // Validate current user auth
+      const currentUser = getAuth().currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'Please login to continue');
+        return;
+      }
+
+      // Validate candidate user ID
+      if (!candidate?.user?.id) {
+        Alert.alert('Error', 'Invalid candidate information');
+        console.error('Missing candidate user ID:', candidate);
+        return;
+      }
+
+      // Prevent chatting with yourself
+      if (currentUser.uid === candidate.user.id) {
+        Alert.alert('Error', 'Cannot create chat with yourself');
+        return;
+      }
+
+      const jobContext: JobAttachment = {
+        jobId: candidate.id,
+        title: candidate.title || 'Seasonal Job',
+        type: 'seasonal',
+        rate: undefined,
+        location: candidate.locationText ? [candidate.locationText] : [],
+        schedule: {
+          start: candidate.dateRange?.start || '',
+          end: candidate.dateRange?.end || '',
+        },
+      };
+
+      const chatId = await createOrGetChat(candidate.user.id, jobContext);
+
+      navigation.navigate('ChatDetailScreen', {
+        chatId,
+        otherUserId: candidate.user.id,
+      });
+    } catch (error: any) {
+      console.error('Failed to create chat:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to create chat. Please try again.',
+      );
+    }
+  };
+
+  const formatCustomDate = (dateString?: string | null) => {
     if (!dateString) return '';
 
     const date = new Date(dateString);
@@ -23,19 +99,19 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate }) => {
 
   return (
     <View style={styles.card}>
-      {/* Cover Image */}
       <Image
-        source={{ uri: candidate?.bannerImage || 'n/a' }}
+        source={{
+          uri:
+            candidate?.bannerImage ||
+            'https://via.placeholder.com/400x200/1E1E1E/FFD900?text=No+Image',
+        }}
         style={styles.candidateImage}
       />
 
-      {/* Status Badge */}
       <View
         style={[
           styles.statusBadge,
-          candidate.status === 'Available'
-            ? styles.statusYellow
-            : styles.statusDark,
+          candidate.isAvailable ? styles.statusYellow : styles.statusDark,
         ]}
       >
         <View
@@ -51,11 +127,12 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate }) => {
         </Text>
       </View>
 
-      {/* Profile Info */}
       <View style={styles.profileRow}>
         <Image
           source={{
-            uri: candidate.user.photo || 'n/a',
+            uri:
+              candidate.user.photo ||
+              'https://via.placeholder.com/50/1E1E1E/FFD900?text=?',
           }}
           style={styles.avatarPlaceholder}
         />
@@ -68,7 +145,6 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate }) => {
         </View>
       </View>
 
-      {/* Tags & Availability */}
       <View style={styles.cardContent}>
         <View style={styles.tagContainer}>
           {candidate.tags.map((tag, index) => (
@@ -82,7 +158,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate }) => {
           <Calendar size={24} color="#FFF" />
           <View>
             <Text style={styles.availabilityTitle}>
-              {candidate?.title || ''}
+              {candidate?.title || 'Seasonal Job'}
             </Text>
             <Text style={styles.availabilityDates}>
               {formatCustomDate(candidate.dateRange?.start)} -{' '}
@@ -91,7 +167,6 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate }) => {
           </View>
         </View>
 
-        {/* Buttons */}
         {candidate.isLocked ? (
           <TouchableOpacity
             style={styles.lockButton}
@@ -101,10 +176,7 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate }) => {
             <Text style={styles.lockButtonText}>Upgrade To Contact</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            style={styles.engageButton}
-            onPress={() => navigation.navigate('chat')}
-          >
+          <TouchableOpacity style={styles.engageButton} onPress={handleEngage}>
             <Text style={styles.engageButtonText}>Engage Candidate</Text>
             <SendHorizontal width={18} height={18} color="#1F2937" />
           </TouchableOpacity>

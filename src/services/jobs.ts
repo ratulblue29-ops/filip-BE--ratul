@@ -251,13 +251,13 @@ export const fetchRecommendedJobs = async () => {
         ...jobData,
         user: userData
           ? {
-              id: userSnap.id,
-              name: userData.profile.name,
-              photo: userData.profile.photo,
-              verified: userData?.profile.verified,
-              email: userData.email,
-              membership: userData.membership,
-            }
+            id: userSnap.id,
+            name: userData.profile.name,
+            photo: userData.profile.photo,
+            verified: userData?.profile.verified,
+            email: userData.email,
+            membership: userData.membership,
+          }
           : null,
       };
     }),
@@ -266,7 +266,7 @@ export const fetchRecommendedJobs = async () => {
   return jobsWithUserInfo;
 };
 
-// fetch full timne jobs
+// fetch full time jobs
 export const fetchFullTimeJobs = async (): Promise<Job[]> => {
   const db = getFirestore();
   // Fetch all jobs
@@ -336,23 +336,46 @@ export const fetchSeasonalJobs = async () => {
   const q = query(
     collection(db, 'jobs'),
     where('type', '==', 'seasonal'),
-    // orderBy('createdAt', 'desc'),
   );
 
   const snap = await getDocs(q);
+
+  type SeasonalJob = {
+    id: string;
+    user: {
+      id: string;
+      name: string;
+      photo: string | null;
+      city: string;
+      verified: boolean;
+      openToWork: boolean;
+    };
+    bannerImage: string | null;
+    title: string;
+    dateRange: {
+      start: string | null;
+      end: string | null;
+    };
+    tags: string[];
+    locationText: string;
+  };
+
   const results = await Promise.all(
-    snap.docs.map(async (jobDoc: any) => {
+    snap.docs.map(async (jobDoc: any): Promise<SeasonalJob | null> => {
       const jobData = jobDoc.data();
+
+      if (!jobData?.userId) {
+        console.warn('Job without userId:', jobDoc.id);
+        return null;
+      }
 
       let userData: any = null;
 
-      if (jobData?.userId) {
-        const userRef = doc(db, 'users', jobData.userId);
-        const userSnap = await getDoc(userRef);
+      const userRef = doc(db, 'users', jobData.userId);
+      const userSnap = await getDoc(userRef);
 
-        if (userSnap.exists()) {
-          userData = userSnap.data();
-        }
+      if (userSnap.exists()) {
+        userData = userSnap.data();
       }
 
       const userName =
@@ -393,5 +416,6 @@ export const fetchSeasonalJobs = async () => {
     }),
   );
 
-  return results;
+  // ✅ Fix: Add explicit type to job parameter
+  return results.filter((job: SeasonalJob | null): job is SeasonalJob => job !== null);
 };

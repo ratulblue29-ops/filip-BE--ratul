@@ -38,7 +38,7 @@ export type RootStackParamList = {
   Seasonal: undefined;
   fulltime: undefined;
   chat: undefined;
-  ChatDetailScreen: undefined;
+  ChatDetailScreen: { chatId: string; otherUserId: string };
   credit: undefined;
   offer: undefined;
   language: undefined;
