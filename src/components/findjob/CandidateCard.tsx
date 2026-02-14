@@ -38,53 +38,58 @@ const CandidateCard: React.FC<CandidateCardProps> = ({ candidate }) => {
   const navigation = useNavigation<any>();
 
   const handleEngage = async () => {
-    try {
-      // Validate current user auth
-      const currentUser = getAuth().currentUser;
-      if (!currentUser) {
-        Alert.alert('Error', 'Please login to continue');
-        return;
-      }
+  try {
+    const currentUser = getAuth().currentUser;
+    console.log('🔵 [1] Current User:', currentUser?.uid);
+    console.log('🔵 [2] Candidate User:', candidate?.user?.id);
+    console.log('🔵 [3] Candidate Object:', JSON.stringify(candidate.user, null, 2));
 
-      // Validate candidate user ID
-      if (!candidate?.user?.id) {
-        Alert.alert('Error', 'Invalid candidate information');
-        console.error('Missing candidate user ID:', candidate);
-        return;
-      }
-
-      // Prevent chatting with yourself
-      if (currentUser.uid === candidate.user.id) {
-        Alert.alert('Error', 'Cannot create chat with yourself');
-        return;
-      }
-
-      const jobContext: JobAttachment = {
-        jobId: candidate.id,
-        title: candidate.title || 'Seasonal Job',
-        type: 'seasonal',
-        rate: undefined,
-        location: candidate.locationText ? [candidate.locationText] : [],
-        schedule: {
-          start: candidate.dateRange?.start || '',
-          end: candidate.dateRange?.end || '',
-        },
-      };
-
-      const chatId = await createOrGetChat(candidate.user.id, jobContext);
-
-      navigation.navigate('ChatDetailScreen', {
-        chatId,
-        otherUserId: candidate.user.id,
-      });
-    } catch (error: any) {
-      console.error('Failed to create chat:', error);
-      Alert.alert(
-        'Error',
-        error.message || 'Failed to create chat. Please try again.',
-      );
+    if (!currentUser) {
+      console.log('🔴 [4] Auth failed - no current user');
+      Alert.alert('Error', 'Please login to continue');
+      return;
     }
-  };
+
+    if (!candidate?.user?.id) {
+      console.log('🔴 [5] Invalid candidate:', candidate);
+      Alert.alert('Error', 'Invalid candidate information');
+      return;
+    }
+
+    if (currentUser.uid === candidate.user.id) {
+      console.log('🔴 [5.5] Cannot chat with yourself');
+      Alert.alert('Error', 'Cannot create chat with yourself');
+      return;
+    }
+
+    console.log('🔵 [6] Creating jobContext...');
+    const jobContext: JobAttachment = {
+      jobId: candidate.id,
+      title: candidate.title || 'Seasonal Job',
+      type: 'seasonal',
+      rate: undefined,
+      location: candidate.locationText ? [candidate.locationText] : [],
+      schedule: {
+        start: candidate.dateRange?.start || '',
+        end: candidate.dateRange?.end || '',
+      },
+    };
+    console.log('🔵 [7] JobContext:', JSON.stringify(jobContext, null, 2));
+
+    console.log('🔵 [8] Calling createOrGetChat...');
+    const chatId = await createOrGetChat(candidate.user.id, jobContext);
+    console.log('🟢 [9] Chat created:', chatId);
+
+    navigation.navigate('ChatDetailScreen', {
+      chatId,
+      otherUserId: candidate.user.id,
+    });
+  } catch (error: any) {
+    console.log('🔴 [10] Error:', error.message);
+    console.log('🔴 [11] Full Error:', error);
+    Alert.alert('Error', error.message || 'Failed to create chat. Please try again.');
+  }
+};
 
   const formatCustomDate = (dateString?: string | null) => {
     if (!dateString) return '';

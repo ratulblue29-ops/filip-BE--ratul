@@ -31,110 +31,130 @@ const getChatId = (userId1: string, userId2: string): string => {
 
 // 1. CREATE OR GET CHAT
 export const createOrGetChat = async (
-    otherUserId: string,
-    jobContext?: JobAttachment,
+  otherUserId: string,
+  jobContext?: JobAttachment,
 ): Promise<string> => {
-    const auth = getAuth(app);
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error('Not authenticated');
+  console.log('🔵 [C1] createOrGetChat called');
+  console.log('🔵 [C2] otherUserId:', otherUserId);
+  console.log('🔵 [C3] jobContext:', JSON.stringify(jobContext, null, 2));
 
-    // Validate otherUserId
-    if (!otherUserId || otherUserId.trim() === '') {
-        throw new Error('Invalid user ID');
-    }
+  const auth = getAuth(app);
+  const currentUser = auth.currentUser;
+  console.log('🔵 [C4] Current user from getAuth:', currentUser?.uid);
 
-    // Prevent creating chat with yourself
-    if (currentUser.uid === otherUserId) {
-        throw new Error('Cannot create chat with yourself');
-    }
+  if (!currentUser) throw new Error('Not authenticated');
 
-    const chatId = getChatId(currentUser.uid, otherUserId);
-    const chatRef = doc(db, 'chats', chatId);
-    const chatSnap = await getDoc(chatRef);
+  if (!otherUserId || otherUserId.trim() === '') {
+    throw new Error('Invalid user ID');
+  }
 
-    if (chatSnap.exists()) {
-        return chatId;
-    }
+  if (currentUser.uid === otherUserId) {
+    throw new Error('Cannot create chat with yourself');
+  }
 
-    // Create new chat
-    await setDoc(chatRef, {
-        participants: [currentUser.uid, otherUserId],
-        participantIds: {
-            [currentUser.uid]: true,
-            [otherUserId]: true,
-        },
-        lastMessage: '',
-        lastMessageAt: serverTimestamp(),
-        lastMessageBy: '',
-        unreadCount: {
-            [currentUser.uid]: 0,
-            [otherUserId]: 0,
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-    });
+  const chatId = getChatId(currentUser.uid, otherUserId);
+  console.log('🔵 [C5] Generated chatId:', chatId);
 
-    // If job context provided, send as first message
-    if (jobContext) {
-        await sendMessage(chatId, '', 'job_attachment', { jobAttachment: jobContext });
-    }
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+  console.log('🔵 [C6] Chat exists:', chatSnap.exists());
 
+  if (chatSnap.exists()) {
+    console.log('🟢 [C7] Returning existing chat');
     return chatId;
+  }
+
+  console.log('🔵 [C8] Creating new chat document...');
+  await setDoc(chatRef, {
+    participants: [currentUser.uid, otherUserId],
+    participantIds: {
+      [currentUser.uid]: true,
+      [otherUserId]: true,
+    },
+    lastMessage: '',
+    lastMessageAt: serverTimestamp(),
+    lastMessageBy: '',
+    unreadCount: {
+      [currentUser.uid]: 0,
+      [otherUserId]: 0,
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  console.log('🟢 [C9] Chat document created');
+
+  if (jobContext) {
+    console.log('🔵 [C10] Sending job attachment message...');
+    await sendMessage(chatId, '', 'job_attachment', { jobAttachment: jobContext });
+    console.log('🟢 [C11] Job message sent');
+  }
+
+  return chatId;
 };
 
 // 2. SEND MESSAGE
 export const sendMessage = async (
-    chatId: string,
-    text: string,
-    type: 'text' | 'job_attachment' | 'system' = 'text',
-    metadata?: any,
+  chatId: string,
+  text: string,
+  type: 'text' | 'job_attachment' | 'system' = 'text',
+  metadata?: any,
 ): Promise<void> => {
-    const auth = getAuth(app);
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error('Not authenticated');
+  console.log('🔵 [M1] sendMessage called');
+  console.log('🔵 [M2] chatId:', chatId, 'type:', type);
 
-    const chatRef = doc(db, 'chats', chatId);
-    const chatSnap = await getDoc(chatRef);
+  const auth = getAuth(app);
+  const currentUser = auth.currentUser;
+  console.log('🔵 [M3] Current user:', currentUser?.uid);
 
-    if (!chatSnap.exists()) throw new Error('Chat not found');
+  if (!currentUser) throw new Error('Not authenticated');
 
-    const chatData = chatSnap.data();
-    if (!chatData) throw new Error('Chat data not found');
+  const chatRef = doc(db, 'chats', chatId);
+  const chatSnap = await getDoc(chatRef);
+  console.log('🔵 [M4] Chat exists:', chatSnap.exists());
 
-    const otherUserId = chatData.participants.find((id: string) => id !== currentUser.uid);
+  if (!chatSnap.exists()) throw new Error('Chat not found');
 
-    // Add message
-    const messagesRef = collection(db, 'chats', chatId, 'messages');
-    await addDoc(messagesRef, {
-        senderId: currentUser.uid,
-        text,
-        type,
-        createdAt: serverTimestamp(),
-        readBy: [currentUser.uid],
-        metadata: metadata || {},
-    });
+  const chatData = chatSnap.data();
+  if (!chatData) throw new Error('Chat data not found');
 
-    // Update chat
-    await updateDoc(chatRef, {
-        lastMessage: type === 'job_attachment' ? 'Sent a job' : text,
-        lastMessageAt: serverTimestamp(),
-        lastMessageBy: currentUser.uid,
-        [`unreadCount.${otherUserId}`]: increment(1),
-        updatedAt: serverTimestamp(),
-    });
+  const otherUserId = chatData.participants.find((id: string) => id !== currentUser.uid);
+  console.log('🔵 [M4.5] Other user ID:', otherUserId);
 
-    // Send notification
-    const notifRef = doc(collection(db, 'notifications'));
-    await setDoc(notifRef, {
-        toUserId: otherUserId,
-        fromUserId: currentUser.uid,
-        type: 'NEW_MESSAGE',
-        title: 'New Message',
-        body: type === 'job_attachment' ? 'Sent you a job' : text.substring(0, 50),
-        data: { chatId },
-        isRead: false,
-        createdAt: serverTimestamp(),
-    });
+  console.log('🔵 [M5] Adding message to subcollection...');
+  const messagesRef = collection(db, 'chats', chatId, 'messages');
+  await addDoc(messagesRef, {
+    senderId: currentUser.uid,
+    text,
+    type,
+    createdAt: serverTimestamp(),
+    readBy: [currentUser.uid],
+    metadata: metadata || {},
+  });
+  console.log('🟢 [M6] Message added');
+
+  console.log('🔵 [M7] Updating chat document...');
+  await updateDoc(chatRef, {
+    lastMessage: type === 'job_attachment' ? 'Sent a job' : text,
+    lastMessageAt: serverTimestamp(),
+    lastMessageBy: currentUser.uid,
+    [`unreadCount.${otherUserId}`]: increment(1),
+    updatedAt: serverTimestamp(),
+  });
+  console.log('🟢 [M8] Chat updated');
+
+  console.log('🔵 [M9] Creating notification...');
+  const notifRef = doc(collection(db, 'notifications'));
+  await setDoc(notifRef, {
+    toUserId: otherUserId,
+    fromUserId: currentUser.uid,
+    type: 'NEW_MESSAGE',
+    title: 'New Message',
+    body: type === 'job_attachment' ? 'Sent you a job' : text.substring(0, 50),
+    data: { chatId },
+    isRead: false,
+    createdAt: serverTimestamp(),
+  });
+  console.log('🟢 [M10] Notification created');
 };
 
 // 3. SUBSCRIBE TO MESSAGES
