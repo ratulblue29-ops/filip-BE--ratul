@@ -88,7 +88,9 @@ const ChatDetailScreen = () => {
             <ChevronLeft color="#fff" size={24} />
           </TouchableOpacity>
           <Image
-            source={{ uri: otherUser?.photo || 'https://via.placeholder.com/50' }}
+            source={{
+              uri: otherUser?.photo || 'https://via.placeholder.com/50',
+            }}
             style={styles.headerAvatar}
           />
           <View>
@@ -113,14 +115,23 @@ const ChatDetailScreen = () => {
               message={{
                 id: item.id,
                 text: item.text,
-                time: item.createdAt?.toDate().toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit',
-                  hour12: true,
-                }) || '',
-                sender: item.senderId === currentUserId ? 'Me' : otherUser?.name || 'User',
+                time:
+                  item.createdAt?.toDate().toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true,
+                  }) || '',
+                sender:
+                  item.senderId === currentUserId
+                    ? 'Me'
+                    : otherUser?.name || 'User',
                 isMe: item.senderId === currentUserId,
-                avatar: item.senderId === currentUserId ? undefined : otherUser?.photo,
+                avatar:
+                  item.senderId === currentUserId
+                    ? undefined
+                    : otherUser?.photo,
+                type: item.type,
+                metadata: item.metadata,
               }}
             />
           );

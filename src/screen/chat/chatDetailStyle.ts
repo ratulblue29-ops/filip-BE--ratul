@@ -172,4 +172,34 @@ export const styles = StyleSheet.create({
     borderColor: '#FDE68A',
     borderWidth: 1,
   },
+jobCardMe: {
+  backgroundColor: '#FFD900',
+  borderRadius: 12,
+  padding: 12,
+  marginBottom: 4,
+  maxWidth: '80%',
+  alignSelf: 'flex-end',
+},
+jobCardOther: {
+  backgroundColor: '#2A2A2A',
+  borderRadius: 12,
+  padding: 12,
+  maxWidth: '80%',
+},
+jobTitle: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#1F2937',
+  marginBottom: 8,
+},
+jobRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginTop: 4,
+  gap: 6,
+},
+jobDetail: {
+  fontSize: 13,
+  color: '#666',
+},
 });
